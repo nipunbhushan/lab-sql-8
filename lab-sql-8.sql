@@ -52,11 +52,6 @@ ORDER BY num_rentals DESC;
 
 -- List the top five genres in gross revenue in descending order.
 
-select * FROM category; -- category_id
-select * FROM film_category; -- film_id
-select * FROM inventory; -- inventory_id
-select * FROM rental; -- rental_id
-SELECT * FROM payment;
 SELECT 
     c.name AS Genre, SUM(p.amount) AS Gross_Revenue
 FROM
@@ -101,8 +96,56 @@ WHERE
 
 -- Get all pairs of customers that have rented the same film more than 3 times.
 
--- yet to try today, didn't get enough time. 
+# Assumption in place - The same movie has been rented in TOTAL more than 3 times and not INDIVIDUALLY by each customer, because the query cannot find any customer
+# renting a movie more than 1 or 2 times.
+
+CREATE VIEW customer_film AS
+    SELECT 
+        r.customer_id AS customer_id, i.film_id AS film_id
+    FROM
+        rental r
+            INNER JOIN
+        inventory i USING (inventory_id);
+
+SELECT 
+    cf1.customer_id AS customer_id1,
+    cf2.customer_id AS customer_id2,
+    film_id
+FROM
+    customer_film cf1
+        INNER JOIN
+    customer_film cf2 USING (film_id)
+WHERE
+    cf1.customer_id < cf2.customer_id
+        AND film_id IN (SELECT 
+            i.film_id AS film_id
+        FROM
+            rental r
+                INNER JOIN
+            inventory i USING (inventory_id)
+        GROUP BY film_id
+        HAVING COUNT(*) > 3);
+
 
 -- For each film, list actor that has acted in more films.
 
--- yet to try today, didn't get enough time.
+SELECT
+	actor_id, film_id, cnt_films
+FROM
+(
+	SELECT 
+		actor_id, film_id, cnt_films, RANK() OVER (PARTITION BY film_id ORDER BY cnt_films DESC) as cnt_films_Rank
+	FROM
+    (
+		SELECT 
+			*
+		FROM
+			film_actor
+		INNER JOIN (SELECT 
+			actor_id, COUNT(film_id) AS cnt_films
+		FROM
+			film_actor
+		GROUP BY actor_id) AS actor_cnt_films USING (actor_id)
+    ) AS film_actor_cnt_films) as film_actor_cnt_films_rank
+    WHERE
+		cnt_films_Rank=1;
